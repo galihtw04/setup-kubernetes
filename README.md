@@ -34,7 +34,7 @@ apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
 ```
 
 disable swap
-> # kita akan disable swap karena ada beberapa pertimbangan disini kita akan menggunakan cgroup dan kita mendisable swap agar pod/app kita bisa berjalan dengan stabil
+> kita akan disable swap karena ada beberapa pertimbangan disini kita akan menggunakan cgroup dan kita mendisable swap agar pod/app kita bisa berjalan dengan stabil
 ```
 swapoff -a
 sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
@@ -234,4 +234,60 @@ enable and start haproxy
 ```
 systemctl enable haproxy
 systemctl start haproxy
+```
+
+# setup cluster kubernetes (execute in master01)
+- Konfigurasi Boostrap First Control panel
+```
+cat << 'EOF' > kubeadm-config.yaml
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: "v1.25.0"
+controlPlaneEndpoint: "k8s.student.cloud:6443"
+clusterName: hokage
+networking:
+  podSubnet: 172.16.100.0/16
+  serviceSubnet: 192.168.20.0/12
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd
+EOF
+```
+- kubeadm init
+```
+kubeadm init --config kubeadm-config.yaml --upload-certs
+```
+create direcotry kube
+```
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+```
+
+edit kubeadm
+```
+kubectl -n kube-system get configmap kubeadm-config -o jsonpath='{.data.ClusterConfiguration}' > kubeadm.yaml
+sed -i 's/6443/8443/g' kubeadm.yaml
+kubeadm init phase upload-config kubeadm --config kubeadm.yaml
+```
+
+edit port kubeproxy
+```
+kubectl -n kube-system get cm kube-proxy -o yaml > kube-proxy.yaml
+sed -i 's/6443/8443/g' kube-proxy.yaml
+kubectl apply -f kube-proxy.yaml
+```
+
+restart kubeadm dan kubeproxy
+```
+kubectl -n kube-system rollout restart ds kube-proxy
+kubectl -n kube-system rollout status ds kube-proxy
+```
+
+update kube-info
+```
+kubectl -n kube-public get cm cluster-info -o yaml > cluster-info.yaml
+sed -i 's/6443/8443/g' cluster-info.yaml
+kubectl apply -f cluster-info.yaml
 ```
