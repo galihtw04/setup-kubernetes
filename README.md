@@ -226,7 +226,7 @@ backend apiserver
         option ssl-hello-chk
         balance roundrobin
         server master01 k8s-student-master01:6443 check fall 3 rise 2
-        server master02 k8s-student-master01:6443 check fall 3 rise 2
+        server master02 k8s-student-master02:6443 check fall 3 rise 2
 EOF
 ```
 
@@ -290,4 +290,57 @@ update kube-info
 kubectl -n kube-public get cm cluster-info -o yaml > cluster-info.yaml
 sed -i 's/6443/8443/g' cluster-info.yaml
 kubectl apply -f cluster-info.yaml
+```
+
+update config admin.conf and kubelete.conf
+```
+sed -i 's/6443/8443/g' .kube/config /etc/kubernetes/admin.conf /etc/kubernetes/kubelet.conf
+systemctl restart kubelet
+```
+
+verify
+```
+kubectl cluster-info
+
+grep server /etc/kubernetes/admin.conf /etc/kubernetes/kubelet.conf
+```
+
+# join Control-plane and worker
+- create token
+```
+echo "$(kubeadm token create --print-join-command) --control-plane --certificate-key $(kubeadm init phase upload-certs --upload-certs | grep -vw -e certificate -e Namespace)"
+```
+
+paste command kubeadm for k8s-student-master02
+```
+```
+
+create dir kube
+```
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+```
+
+- join worker
+> hapus command --control-plane dan --certificate-key, untuk commandnya akan seperti berikut
+```
+```
+
+verify 
+```
+kubectl get nodes -o wide
+```
+> ketika kita show node maka masih nodeready, karena kita belum apply cni(Container network interface) yang akan digunakan pada pod/container`
+
+- apply calico
+> selain calico masih ada flanel.wave,cillium, dan lain-lain, dari cni-cni tersebut memiliki kelebihan dan kekurangan masing-masing bisa kalian sesuaing dengan eviroment applikasi kalian, cni bisa kita ubah dari calico ke flanel atau yang lain, tergantung dengan reproduce kita.
+```
+wget https://raw.githubusercontent.com/projectcalico/calico/master/manifests/calico.yaml
+kubectl apply -f calico.yaml
+```
+
+verify again
+```
+kubectl get nodes -o wide
 ```
