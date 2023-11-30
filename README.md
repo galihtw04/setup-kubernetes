@@ -95,9 +95,8 @@ apt-mark hold kubelet kubeadm kubectl
 autocomplate command kubernetes
 > by default setelah kita install kubernetes kita tidah bisa menggunakan *Tab* untuk autocomplate
 ```
-# set up autocomplete in bash into the current shell, bash-completion package should be installed first. source <(kubectl completion bash)
-# add autocomplete permanently to your bash shell. echo "source <(kubectl completion bash)" >> ~/.bashrc
-#enable auto complate
+source <(kubectl completion bash)
+echo "source <(kubectl completion bash)" >> ~/.bashrc
 . .bashrc
 ```
 
