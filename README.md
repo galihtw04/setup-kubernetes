@@ -27,18 +27,53 @@ EOF
 
 output
 
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/3f076a10-617b-4a76-805b-4a6b76d850e6)
+
+copy file /etc/hosts to master2,master3 and all workers
+```
+for x in {1..4}; do ssh -i access.pem 10.20.10.1$x hostname; \
+scp -i access.pem /etc/hosts root@10.20.10.1$x:/etc/ ;done
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/db24e4a7-0840-4fc1-bb05-503a14f92df2)
+
+verify
+```
+for x in {0..4}; do ssh -i access.pem 10.20.10.1$x hostname; \
+ssh -i access.pem 10.20.10.1$x cat /etc/hosts | grep 10.20.10. ;done
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/e5123da9-70fb-4750-a990-f8a721422894)
+
+
 install package
 ```
-apt-get update && apt-get upgrade -y --with-new-pkgs
-apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+for x in {0..4}; do ssh -i access.pem 10.20.10.1$x apt-get update \
+&& apt-get upgrade -y --with-new-pkgs;
+ssh -i access.pem 10.20.10.1$x apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release ;done
 ```
+
+verify
+```
+for i in apt-transport-https ca-certificates curl gnupg lsb-release; do
+    for x in {0..4}; do
+        ssh 10.20.10.1$x "hostname && dpkg -l | grep $i"
+    done
+done
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/6f298520-50b3-4301-8966-558ecd0c0bab)
 
 disable swap
 > kita akan disable swap karena ada beberapa pertimbangan disini kita akan menggunakan cgroup dan kita mendisable swap agar pod/app kita bisa berjalan dengan stabil
 ```
-swapoff -a
-sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+for x in {0..4}; do ssh -i access.pem 10.20.10.1$x swapoff -a; \
+ssh -i access.pem 10.20.10.1$x "sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab" ;done
 ```
+
+verify 
+```
+for x in {0..4}; do ssh -i access.pem 10.20.10.1$x 'hostname; free -h && swapon --show' ;done
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/07c1db4e-0881-4877-86fc-aea6718a7265)
+
 - setup cri containerd
 create script cri containerd
 ```
@@ -55,7 +90,7 @@ modprobe br_netfilter
 net.bridge.bridge-nf-call-iptables = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward = 1
-EOF
+
 # Apply sysctl params without reboot
 sysctl --system
 #repository
@@ -72,15 +107,20 @@ systemctl restart containerd
 EOF
 ```
 
-running  cri containerd
+Add permission execute
 ```
 chmod +x cri_containerd.sh
-bash cri_containerd.sh
+```
+
+install containerd all vm/instance master and worker
+```
+for x in {0..4}; do scp -i access.pem root@10.20.10.1$x:~/ ; \
+ssh -i access.pem 10.20.10.1$x bash ~/cri_containerd.sh ;done
 ```
 
 verify service containerd
 ```
-systemcl statu conainerd.service
+systemcl status conainerd.service
 ```
 
 # install kubernetes
