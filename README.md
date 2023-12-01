@@ -80,22 +80,27 @@ create script cri containerd
 cat << 'EOF' >> cri_containerd.sh
 #!/bin/bash
 # Load containerd required modules
-cat <<EOF | tee /etc/modules-load.d/containerd.conf
+cat <<TOF | tee /etc/modules-load.d/containerd.conf
 overlay
 br_netfilter
-EOF
+TOF
 modprobe overlay
 modprobe br_netfilter
-# Setup required sysctl params, these persist across reboots. cat <<EOF | tee /etc/sysctl.d/99-kubernetes-cri.conf
+# Setup required sysctl params, these persist across reboots.
+cat <<END | tee /etc/sysctl.d/99-kubernetes-cri.conf
 net.bridge.bridge-nf-call-iptables = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward = 1
+END
+
+# set ip forward
+echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf
+sysctl -p
 
 # Apply sysctl params without reboot
 sysctl --system
 #repository
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmour -o
-/etc/apt/trusted.gpg.d/docker.gpg
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmour -o /etc/apt/trusted.gpg.d/docker.gpg
 add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs)
 stable" && apt update
 # Install containerd
@@ -103,7 +108,8 @@ apt-get install -y containerd
 mkdir -p /etc/containerd
 containerd config default | tee /etc/containerd/config.toml
 sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
-systemctl restart containerd
+systemctl start containerd.service
+systemctl restart containerd.service
 EOF
 ```
 
@@ -114,44 +120,69 @@ chmod +x cri_containerd.sh
 
 install containerd all vm/instance master and worker
 ```
-for x in {0..4}; do scp -i access.pem root@10.20.10.1$x:~/ ; \
+for x in {1..4}; do scp -i access.pem cri_containerd.sh root@10.20.10.1$x:~/ ; \
 ssh -i access.pem 10.20.10.1$x bash ~/cri_containerd.sh ;done
 ```
 
 verify service containerd
 ```
-systemcl status conainerd.service
+for x in {0..4}; do ssh -i access.pem 10.20.10.1$x 'hostname; systemctl status containerd.service | grep Active' ;done
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/7e7080d3-4a2e-452e-9fb0-003657e3c982)
 
 # install kubernetes
+create script
 ```
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - \
-echo 'deb http://apt.kubernetes.io/ kubernetes-xenial main' > \
-/etc/apt/sources.list.d/kubernetes.list
+cat << 'EOF' >> install_kubernetes.sh
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+echo 'deb http://apt.kubernetes.io/ kubernetes-xenial main' > /etc/apt/sources.list.d/kubernetes.list
 apt-get update && apt-get install -y kubelet=1.25.0-00 kubeadm=1.25.0-00 kubectl=1.25.0-00
 apt-mark hold kubelet kubeadm kubectl
+EOF
 ```
+
+install all node
+```
+chmod +x install_kubernetes.sh
+for x in {0..4}; do scp -i access.pem install_kubernetes.sh root@10.20.10.1$x:~/ ; \
+ssh -i access.pem 10.20.10.1$x bash ~/install_kubernetes.sh ;done
+```
+
+verify
+```
+for x in {0..4}; do ssh -i access.pem 10.20.10.1$x "hostname; kubelet --version; kubectl version -o yaml | grep gitVersion"; \
+ssh -i access.pem 10.20.10.1$x kubeadm version | awk -F: '{print $5}'; done
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/d6f636e3-e5b8-44fd-9cfa-b3359ab995f2)
 
 autocomplate command kubernetes
 > by default setelah kita install kubernetes kita tidah bisa menggunakan *Tab* untuk autocomplate
 ```
-source <(kubectl completion bash)
+cat << 'EOF' >> autocomplate-k8s.sh
 echo "source <(kubectl completion bash)" >> ~/.bashrc
+echo "alias k=kubectl" >> ~/.bashrc
 . .bashrc
+EOF
+
+chmod +x autocomplate-k8s.sh
+for x in {0..4}; do scp -i access.pem autocomplate-k8s.sh root@10.20.10.1$x:~/ ; \
+ssh -i access.pem 10.20.10.1$x bash ~/autocomplate-k8s.sh ;done
 ```
+
 
 # Setup HA Master
 install package haproxy and keepalived(vrrp)
-> execure on @k8s-student-master01 and k8s-student-master02
+> destinationnya cuma master01,master02,dan master03
 ```
+cat << 'EOF' >> vrrp-install.sh
 apt-get install haproxy keepalived -y
-```
-
-## konfigure keepalived (vrrp)
-- create group and user for executing health keepalived
-```
 groupadd -r keepalived_script
 useradd -r -s /sbin/nologin -g keepalived_script -M keepalived_script
+EOF
+
+chmod +x vrrp-install.sh
+for x in {0..2}; do scp -i access.pem vrrp-install.sh root@10.20.10.1$x:~/ ; \
+ssh -i access.pem 10.20.10.1$x bash ~/vrrp-install.sh ;done
 ```
 
 ```
@@ -165,13 +196,12 @@ curl --silent --max-time 2 --insecure https://localhost:6443/ -o /dev/null || er
 if ip addr | grep -q 10.20.10.100; then
     curl --silent --max-time 2 --insecure https://k8s.student.cloud:8443/ -o /dev/null || errorExit "Error GET https://k8s.student.cloud:8443"
 fi
+EOF
+
+chmod 755 /etc/keepalived/check_apiserver.sh
+for x in {1..2}; do scp -i access.pem /etc/keepalived/check_apiserver.sh root@10.20.10.1$x:/etc/keepalived/check_apiserver.sh ;done
 ```
 
-add permission execute and scp to master-02
-```
-chmod +x /etc/keepalived/check_apiserver.sh
-scp /etc/keepalived/check_apiserver.sh root@k8s-student-master02://etc/keepalived/check_apiserver.sh
-```
 
 setup vrrp on k8s-student-master01
 ```
@@ -207,6 +237,8 @@ vrrp_instance k8s-apiserver-hokage {
 EOF
 ```
 
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/80eaa28b-f1e5-498a-bf8f-29374ea90f32)
+
 setup keepalived on k8s-student-master02 backup
 ```
 cat << 'EOF' >> /etc/keepalived/keepalived.conf
@@ -240,16 +272,58 @@ vrrp_instance k8s-apiserver-hokage {
 }
 EOF
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/34e6a11f-31b3-400a-a66b-e8273a0a76ca)
+
+
+setup keepalived on k8s-student-master03 backup
+```
+cat << 'EOF' >> /etc/keepalived/keepalived.conf
+global_defs {
+    router_id LVS_DEVEL
+    enable_script_security
+}
+vrrp_script check_apiserver {
+  script "/etc/keepalived/check_apiserver.sh"
+  interval 3
+  weight -2
+  fall 10
+  rise 2
+}
+
+vrrp_instance k8s-apiserver-hokage {
+    state BACKUP
+    interface ens3
+    virtual_router_id 51
+    priority 98
+    authentication {
+        auth_type PASS
+        auth_pass s3Cur3
+    }
+    virtual_ipaddress {
+        10.20.10.100/24
+    }
+    track_script {
+        check_apiserver
+    }
+EOF
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/8486a6c7-d7e5-445f-ac39-0b99299278ca)
 
 enable and start keepalived
 ```
-systemctl enable keepalived
-systemctl start keepalived
+for x in {0..2}; do ssh -i access.pem 10.20.10.1$x 'hostname; systemctl enable keepalived; systemctl start keepalived' ;done
 ```
+
+verify
+```
+for x in {0..2}; do ssh -i access.pem 10.20.10.1$x 'hostname; systemctl status keepalived | grep Active' ;done
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/ed578742-20ab-4ceb-812b-1df855b3a295)
+
 
 # configuration haproxy
 > # Note
-> execute on k8s-student-master01 and k8s-student-master02
+> execute on k8s-student-master01 k8s-student-master02
 ```
 cat << 'EOF' >> /etc/haproxy/haproxy.cfg
 frontend apiserver
@@ -266,24 +340,32 @@ backend apiserver
         balance roundrobin
         server master01 k8s-student-master01:6443 check fall 3 rise 2
         server master02 k8s-student-master02:6443 check fall 3 rise 2
+        server master03 k8s-student-master03:6443 check fall 3 rise 2
 EOF
+
+for x in {1..2}; do scp -i access.pem /etc/haproxy/haproxy.cfg root@10.20.10.1$x:/etc/haproxy/haproxy.cfg ;done
 ```
 
 enable and start haproxy
 ```
-systemctl enable haproxy
-systemctl start haproxy
+for x in {0..2}; do ssh -i access.pem 10.20.10.1$x 'hostname; systemctl enable haproxy; systemctl start haproxy' ;done
 ```
 
+verify running haproxy
+```
+for x in {0..2}; do ssh -i access.pem 10.20.10.1$x 'hostname; systemctl status haproxy | grep Active' ;done
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/ba63a63d-5d49-438a-9538-d9d88ae69a7d)
+
 # setup cluster kubernetes (execute in master01)
-- Konfigurasi Boostrap First Control panel
+- Konfigurasi Boostrap First Control panel, execute in master01
 ```
 cat << 'EOF' > kubeadm-config.yaml
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
 kubernetesVersion: "v1.25.0"
 controlPlaneEndpoint: "k8s.student.cloud:6443"
-clusterName: hokage
+clusterName: k8s-student
 networking:
   podSubnet: 172.16.100.0/16
   serviceSubnet: 192.168.20.0/12
@@ -293,10 +375,14 @@ kind: KubeletConfiguration
 cgroupDriver: systemd
 EOF
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/f1ac6872-f995-4952-983a-f1d5abe60bc6)
+
 - kubeadm init
 ```
 kubeadm init --config kubeadm-config.yaml --upload-certs
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/3c634eae-b036-4fc8-a305-3ed05e5d4b41)
+
 create direcotry kube
 ```
 mkdir -p $HOME/.kube
@@ -343,34 +429,69 @@ kubectl cluster-info
 
 grep server /etc/kubernetes/admin.conf /etc/kubernetes/kubelet.conf
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/0739ebb2-dd5c-4424-b682-30a92e3f359d)
 
 # join Control-plane and worker
 - create token
 ```
 echo "$(kubeadm token create --print-join-command) --control-plane --certificate-key $(kubeadm init phase upload-certs --upload-certs | grep -vw -e certificate -e Namespace)"
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/ca571cc0-619d-43b7-826b-67038661edbf)
 
-paste command kubeadm for k8s-student-master02
+
+join master2 dan master3
+> # note
+> copy ouput pada command sebelumnya, yang akan kita gunakan untuk join ke cluster dengan role control-plane
 ```
+cat << 'EOF' >> join_master.sh
+kubeadm join k8s.student.cloud:8443 --token o8htj5.8zbdkw3meleuei19 --discovery-token-ca-cert-hash sha256:7164cc629f7bdf398406fe18bef0489d5e532123eee9b787032c369f812bb894  --control-plane --certificate-key 83bcb83ae7416e9f7a141250098d145648db07d700754d138747d41f3b6555ee
+EOF
+
+chmod +x join_master.sh
+for x in {1..2}; do scp -i access.pem join_master.sh root@10.20.10.1$x:~/join_master.sh; ssh -i access.pem 10.20.10.1$x bash ~/join_master.sh ;done
 ```
+
+verify
+> # note
+> belum ready karena masih belum di apply cni
+```
+k get node -o wide
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/576f1f6e-1074-40d6-976d-3d2123cdedde)
 
 create dir kube
 ```
+cat<< 'EOF' >> create-dir.sh
 mkdir -p $HOME/.kube
 cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 chown $(id -u):$(id -g) $HOME/.kube/config
+EOF
+
+chmod +x create-dir.sh
+for x in {1..2}; do scp -i access.pem create-dir.sh root@10.20.10.1$x:~/create-dir.sh; ssh -i access.pem 10.20.10.1$x bash ~/create-dir.sh ;done
 ```
 
 - join worker
 > hapus command --control-plane dan --certificate-key, untuk commandnya akan seperti berikut
 ```
+cat << 'EOF' >> join_worker.sh
+kubeadm join k8s.student.cloud:8443 --token o8htj5.8zbdkw3meleuei19 --discovery-token-ca-cert-hash sha256:7164cc629f7bdf398406fe18bef0489d5e532123eee9b787032c369f812bb894
+EOF
+
+chmod +x join_worker.sh
+for x in {3,4}; do scp -i access.pem join_worker.sh root@10.20.10.1$x:~/join_worker.sh; ssh -i access.pem 10.20.10.1$x bash ~/join_worker.sh ;done
 ```
 
 verify 
 ```
 kubectl get nodes -o wide
+kubectl get all -A
 ```
-> ketika kita show node maka masih nodeready, karena kita belum apply cni(Container network interface) yang akan digunakan pada pod/container`
+> ketika kita show node maka masih nodeready, karena kita belum apply cni(Container network interface) yang akan digunakan pada pod/container
+
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/3150cfd0-80df-4656-82ce-06762ac66eb1)
+
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/d005b7d8-364f-4542-81b6-aecc48c711a8)
 
 - apply calico
 > selain calico masih ada flanel.wave,cillium, dan lain-lain, dari cni-cni tersebut memiliki kelebihan dan kekurangan masing-masing bisa kalian sesuaing dengan eviroment applikasi kalian, cni bisa kita ubah dari calico ke flanel atau yang lain, tergantung dengan reproduce kita.
@@ -382,4 +503,8 @@ kubectl apply -f calico.yaml
 verify again
 ```
 kubectl get nodes -o wide
+kubectl get pods -n kube-system
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/3f9d65e2-6f63-47ab-8269-6795761f7838)
+
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/1635ea0f-44d9-4767-a577-ce61b90c7d39)
