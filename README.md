@@ -346,9 +346,9 @@ EOF
 for x in {1..2}; do scp -i access.pem /etc/haproxy/haproxy.cfg root@10.20.10.1$x:/etc/haproxy/haproxy.cfg ;done
 ```
 
-enable and start haproxy
+restart haproxy
 ```
-for x in {0..2}; do ssh -i access.pem 10.20.10.1$x 'hostname; systemctl enable haproxy; systemctl start haproxy' ;done
+for x in {0..2}; do ssh -i access.pem 10.20.10.1$x 'hostname; systemctl restart haproxy' ;done
 ```
 
 verify running haproxy
