@@ -55,7 +55,7 @@ verify
 ```
 for i in apt-transport-https ca-certificates curl gnupg lsb-release; do
     for x in {0..4}; do
-        ssh 10.20.10.1$x "hostname && dpkg -l | grep $i"
+        ssh -i access.pem 10.20.10.1$x "hostname && dpkg -l | grep $i"
     done
 done
 ```
