@@ -161,7 +161,7 @@ autocomplate command kubernetes
 cat << 'EOF' >> autocomplate-k8s.sh
 echo "source <(kubectl completion bash)" >> ~/.bashrc
 echo "alias k=kubectl" >> ~/.bashrc
-. .bashrc
+source ~/.bashrc
 EOF
 
 chmod +x autocomplate-k8s.sh
