@@ -480,7 +480,9 @@ for x in {1..2}; do scp -i access.pem create-dir.sh root@10.20.10.1$x:~/create-d
 cat << 'EOF' >> join_worker.sh
 kubeadm join k8s.student.cloud:8443 --token o8htj5.8zbdkw3meleuei19 --discovery-token-ca-cert-hash sha256:7164cc629f7bdf398406fe18bef0489d5e532123eee9b787032c369f812bb894
 EOF
-
+```
+looping script join worker01 and worker02 in cluster
+```
 chmod +x join_worker.sh
 for x in {3,4}; do scp -i access.pem join_worker.sh root@10.20.10.1$x:~/join_worker.sh; ssh -i access.pem 10.20.10.1$x bash ~/join_worker.sh ;done
 ```
