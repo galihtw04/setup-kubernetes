@@ -120,7 +120,7 @@ chmod +x cri_containerd.sh
 
 install containerd all vm/instance master and worker
 ```
-for x in {1..4}; do scp -i access.pem cri_containerd.sh root@10.20.10.1$x:~/ ; \
+for x in {0..4}; do scp -i access.pem cri_containerd.sh root@10.20.10.1$x:~/ ; \
 ssh -i access.pem 10.20.10.1$x bash ~/cri_containerd.sh ;done
 ```
 
