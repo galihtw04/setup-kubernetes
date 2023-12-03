@@ -161,6 +161,7 @@ autocomplate command kubernetes
 cat << 'EOF' >> autocomplate-k8s.sh
 echo "source <(kubectl completion bash)" >> ~/.bashrc
 echo "alias k=kubectl" >> ~/.bashrc
+echo "complete -o default -F __start_kubectl k" >> ~/.bashrc
 source ~/.bashrc
 EOF
 
@@ -446,7 +447,9 @@ join master2 dan master3
 cat << 'EOF' >> join_master.sh
 kubeadm join k8s.student.cloud:8443 --token o8htj5.8zbdkw3meleuei19 --discovery-token-ca-cert-hash sha256:7164cc629f7bdf398406fe18bef0489d5e532123eee9b787032c369f812bb894  --control-plane --certificate-key 83bcb83ae7416e9f7a141250098d145648db07d700754d138747d41f3b6555ee
 EOF
-
+```
+looping script join master02 and master03 in cluster
+```
 chmod +x join_master.sh
 for x in {1..2}; do scp -i access.pem join_master.sh root@10.20.10.1$x:~/join_master.sh; ssh -i access.pem 10.20.10.1$x bash ~/join_master.sh ;done
 ```
