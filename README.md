@@ -165,7 +165,7 @@ echo "alias k=kubectl" >> ~/.bashrc
 EOF
 
 chmod +x autocomplate-k8s.sh
-for x in {0..4}; do scp -i access.pem autocomplate-k8s.sh root@10.20.10.1$x:~/ ; \
+for x in {0..2}; do scp -i access.pem autocomplate-k8s.sh root@10.20.10.1$x:~/ ; \
 ssh -i access.pem 10.20.10.1$x bash ~/autocomplate-k8s.sh ;done
 ```
 
