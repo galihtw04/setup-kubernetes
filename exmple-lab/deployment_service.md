@@ -49,19 +49,69 @@ kubectl get deployment
 ```
 ![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/aca13f33-3306-4634-b564-db7f27fd90b0)
 
-disini kita akan mecoba membuat deployment dengan mengubah tampilan nya, jika sebelumnya hanya tampilan default.
-- create tampilan web
-```
-mkdir ~/nginx-template
-echo "<h1>Hallo ini adalah nginx-template<h1>" > ~/nginx-template/index.html
-```
-![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/db27bd46-b9d5-404c-94e5-32f75f19c032)
+untuk contoh file yang akan kita dapat seperti berikut,
+<details><summary>nginx_template.yaml</summary>
 
-edit manifest
 ```
-nano nginx_template.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: "2023-12-05T05:34:03Z"
+  generation: 1
+  labels:
+    app: nginx-template
+  name: nginx-template
+  namespace: default
+  resourceVersion: "264764"
+  uid: b117715f-7d7e-4ba4-8ef7-442a5ae48dca
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: nginx-template
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nginx-template
+    spec:
+      containers:
+      - image: nginx:latest
+        imagePullPolicy: Always
+        name: nginx
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status: {}
 ```
-edit seperti ini
+</details>
+disini kita akan coba membuat replica 10, untuk membuet replica 10 kalian edit pada bagian replica yang tadinya 1 menjadi 10.
+
+```
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 10
 ```
 
+apply manifest
+```
+k apply -f nginx_template.yaml
+```
+
+verify
+```
+k get deployments
+k get pods | grep nginx-template
 ```
