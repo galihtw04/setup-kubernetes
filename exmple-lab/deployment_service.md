@@ -110,8 +110,117 @@ apply manifest
 k apply -f nginx_template.yaml
 ```
 
-verify
+apply deployment
 ```
 k get deployments
-k get pods | grep nginx-template
+k get pods -o wide | grep nginx-template
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/18adbf1e-4f7e-4ba4-a41f-3b86209fa7d2)
+
+verify
+```
+kubectl get pods -o wide | grep nginx-template | awk '{print $6}' > nginx-ip.txt
+
+for x in $(cat nginx-ip.txt); do
+    if curl -s --head $x | grep -q "200 OK"; then
+        echo "Success: $x returned HTTP 200"
+    else
+        echo "Error: $x did not return HTTP 200"
+    fi
+done
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/34a7fb7b-c999-4b95-ba11-fb1eaae6667d)
+> jik perhatikan kita dapat melakukan hit dengan normal dengan code 200 jika berhasil, kelebihan kita membuat pod menggunakan deployment kita bisa membuat beberapa replica, dan jika ada pods yang ke delete maka pods akan membuat baru sesuai ketentuan replica pada deployments
+
+# Service
+Di Kubernetes, Service (atau svc) adalah salah satu objek yang digunakan untuk mengekspos aplikasi atau layanan ke dalam jaringan cluster atau luar cluster. Service membantu dalam mengelola konektivitas antara aplikasi yang berjalan di dalam cluster, memungkinkan komunikasi yang dapat diandalkan antara komponen-komponen tersebut. Berikut adalah beberapa tipe Service yang umum digunakan di Kubernetes.
+
+ClusterIP:
+
+Jenis ini membuat serivce hanya dapat diakses dari dalam cluster.Ketika Anda ingin service hanya dapat diakses oleh komponen internal dalam cluster.
+- expose deployment nginx-template
+```
+kubectl expose deployment nginx-template --type=ClusterIP --name=svc-nginx-template --port=80 --target-port=80
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/2e4ccb30-5cc4-4644-b71f-ecebfc91cc3f)
+
+- testing dalam cluster
+```
+# curl http://<ip service> -I
+curl http://192.162.199.249 -I
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/a1554db0-b0ef-4392-a407-741f7cb6f5b2)
+
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/eb493944-ff8b-413b-b54d-ff1ebd346027)
+
+- testing luar cluster
+> testing di host libvirt
+```
+curl http://192.162.199.249 -I -vvv
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/8d4c2352-f0a4-41f9-8be9-a666edd561fe)
+
+
+NodePort:
+
+Mengekspos layanan melalui port tertentu pada semua node dalam cluster.Untuk mengakses layanan dari luar cluster atau melalui IP node dan port tertentu.
+
+- expose deployment nginx-template
+```
+kubectl expose deployment nginx-template --type=NodePort --name=svc-nodeport-nginx --port=80 --target-port=80
+```
+> # note
+> ketika kita membuat atau expose ke nodeport maka port yang akan digunakan untuk hit service akan acak, untuk range port pada nodeport adalah 30000-32767.
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/33cfc62b-dc1d-49ca-8162-93f74801eec8)
+
+- testing dalam cluster
+```
+# curl http://<ip node cluster>:<port nodeport>
+curl http://10.20.10.100:30103 -I
+curl http://10.20.10.13:30103 -I
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/83c6e9ef-55d4-4d16-9475-dca0d413ae0b)
+
+- testing luar cluster
+```
+curl http://10.20.10.100:30103 -I
+curl http://10.20.10.13:30103 -I
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/04eb9183-f860-4d3b-82a1-9a830adc50fa)
+
+LoadBalancer:
+
+Mengekspos service melalui load balancer eksternal (dapat menjadi layanan cloud atau perangkat keras fisik).Ketika Anda ingin mendistribusikan lalu lintas service secara eksternal melalui load balancer.
+- expose deployment nginx-template
+```
+kubectl expose deployment nginx-template --type=LoadBalancer --name=svc-lb-nginx --port=80 --target-port=80
+kubectl get svc
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/ef4c7b76-092a-451b-814d-6c65850b75e3)
+> Note
+> jika kalian perhatikan pada bagian external ip terdapat yang pending, external ip digunakan untuk diakses menggunakan port asli applikasi, pada service loadbalancer juga mendapart port range nodeport.
+> karena pending kita harus setup metallb terlebih dahulu agar loadbalance dapat diakses menggunakan external ip, sebenarnya kita juga bisa membuat service loadbalancer tanpa setup metallb terlebih dahulu.
+
+- create loadbalancer static external-ip
+```
+kubectl expose deployment nginx-template --type=LoadBalancer --name=svc-lb-nginx2 --port=80 --target-port=80 --external-ip=10.20.10.201
+kubectl get svc
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/2eda66c4-0007-4c45-aa0d-21bb69066f84)
+
+
+- testing curl service svc-lb-nginx2 dalam cluster 
+```
+curl 192.161.14.116 -I
+curl 10.20.10.201 -I
+curl 10.20.10.100:32093 -I
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/67903d16-f017-425c-8239-349f225d5d1d)
+
+- testing curl service svc-lb-nginx2 luar cluster
+
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/5785b519-c241-48ac-b58c-fd8c0f3798d1)
+
+ExternalName:
+
+Membuat alias untuk layanan eksternal dengan memberikan nama DNS eksternal.Ketika Anda ingin merujuk ke layanan eksternal menggunakan DNS.
