@@ -198,6 +198,7 @@ kubectl get svc
 ```
 ![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/ef4c7b76-092a-451b-814d-6c65850b75e3)
 > Note
+> 
 > jika kalian perhatikan pada bagian external ip terdapat yang pending, external ip digunakan untuk diakses menggunakan port asli applikasi, pada service loadbalancer juga mendapart port range nodeport.
 > karena pending kita harus setup metallb terlebih dahulu agar loadbalance dapat diakses menggunakan external ip, sebenarnya kita juga bisa membuat service loadbalancer tanpa setup metallb terlebih dahulu.
 
@@ -206,21 +207,101 @@ kubectl get svc
 kubectl expose deployment nginx-template --type=LoadBalancer --name=svc-lb-nginx2 --port=80 --target-port=80 --external-ip=10.20.10.201
 kubectl get svc
 ```
-![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/2eda66c4-0007-4c45-aa0d-21bb69066f84)
-
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/be5f5599-6abc-41d6-9b69-3f71c5e7a8cf)
 
 - testing curl service svc-lb-nginx2 dalam cluster 
 ```
-curl 192.161.14.116 -I
+curl 192.164.232.91 -I
 curl 10.20.10.201 -I
-curl 10.20.10.100:32093 -I
+curl 10.20.10.100:30256 -I
 ```
-![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/67903d16-f017-425c-8239-349f225d5d1d)
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/c8d2b07c-6c20-4a3f-8495-90fa218fb52e)
+
 
 - testing curl service svc-lb-nginx2 luar cluster
+```
+curl 192.164.232.91 -I
+curl 10.20.10.201 -I
+curl 10.20.10.100:30256 -I
+```
 
 ![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/5785b519-c241-48ac-b58c-fd8c0f3798d1)
+> perhatikan bahwa ketika kita curl dari luar cluster belum bisa, agar dari luar bisa akses ke service tersebut harus menggunakan nodeport. Supaya kita bisa akses ke service menggunakan external-ip kita perlu konfigurasi metallb.
+
+- installation metallb
+```
+mkdir metallb && cd metallb
+wget https://raw.githubusercontent.com/metallb/metallb/v0.13.12/config/manifests/metallb-native.yaml
+kubectl apply -f metallb-native.yaml
+```
+
+- set l2advertisment metallb
+```
+cat << 'EOF' > l2.yaml
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: l2-lb
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - 10.20.10.201-10.20.10.240
+EOF
+kubectl apply -f l2.yaml
+kubectl get l2advertisements.metallb.io -n metallb-system
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/b24f5e1d-0010-4863-bc28-c97cd3667efe)
+
+- testing curl di luar cluster
+> note
+> karena pada service saya sebelumnya restart jadi cluster-ip nya berubah, tapi cluster-ip tetap tidak bisa diakses diluar cluster
+```
+curl 192.164.232.91 -I
+curl 10.20.10.201 -I
+curl 10.20.10.100:30256 -I
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/652a7c72-74a6-43ab-9521-ff1f97bba09d)
+
+- fixing pending svc-lb-nginx
+
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/7ad2084d-f38c-452b-9f1a-c7e293dd8968)
+> penyebab loadbalancing pending karena tidak mendpat ip, agar loadbalancer mendapat ip secara dhcp kita harus konfigurasi metallb ipaddresspool
+
+- set ip address pool
+```
+cat << 'EOF' > loadbalancing.yaml
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: lb-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 10.20.10.149-10.20.10.199
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: l2-nginx
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - lb-pool # nama ipaddresspool
+EOF
+kubectl apply -f loadbalancing.yaml
+kubectl get svc
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/8685df16-2e30-4aef-be07-4dae0ee4979e)
+> note
+> untuk loadbalancing svc-lb-nginx juga mendapatkan ip dari lb-pool
+
+- testing curl svc-lb-nginx di luar cluster
+```
+curl 192.161.145.171 -I
+curl 10.20.10.150 -I
+curl 10.20.10.100:32093 -I
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/c655cf97-4214-40ef-be96-5508d0fe5a3b)
 
 ExternalName:
-
 Membuat alias untuk layanan eksternal dengan memberikan nama DNS eksternal.Ketika Anda ingin merujuk ke layanan eksternal menggunakan DNS.
