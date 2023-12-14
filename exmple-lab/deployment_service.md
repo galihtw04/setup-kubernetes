@@ -228,14 +228,14 @@ curl 10.20.10.100:30256 -I
 ![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/5785b519-c241-48ac-b58c-fd8c0f3798d1)
 > perhatikan bahwa ketika kita curl dari luar cluster belum bisa, agar dari luar bisa akses ke service tersebut harus menggunakan nodeport. Supaya kita bisa akses ke service menggunakan external-ip kita perlu konfigurasi metallb.
 
-- installation metallb
+- installation baremetal
 ```
 mkdir metallb && cd metallb
 wget https://raw.githubusercontent.com/metallb/metallb/v0.13.12/config/manifests/metallb-native.yaml
 kubectl apply -f metallb-native.yaml
 ```
 
-- set l2advertisment metallb
+- set l2advertisment baremetal
 ```
 cat << 'EOF' > l2.yaml
 apiVersion: metallb.io/v1beta1
