@@ -5,7 +5,7 @@ refrensi : https://github.com/kubernetes/ingress-nginx
 install ingress Controller
  - apply with manifest
 ```
-mkdir Ingress && cd ingress
+mkdir Ingress && cd Ingress
 wget https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.4/deploy/static/provider/cloud/deploy.yaml
 kubectl apply -f deploy.yaml
 ```
@@ -64,7 +64,7 @@ controller:
     default-server-port: 8119
   service:
     enabled: true
-    type: NodePort
+    type: LoadBalancer
     nodePorts:
       http: 31080
       https: 31443
@@ -84,22 +84,31 @@ helm repo list
 ![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/92cc9a6c-1ec9-49a8-b9f8-f2aa8d38f0fe)
 
 ```
-helm install ingress-nginx ingress-nginx  --values daemonset.yaml --namespace ingress-nginx --create-namespace
+helm install ingress-nginx ingress-nginx/ingress-nginx --values daemonset.yaml --namespace ingress-nginx --create-namespace
 kubectl get all -n ingress-nginx -o wide
+kubectl get ingressclass
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/e013268d-71a3-4d43-b9dd-d875e02faf76)
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/75b8c805-842d-4e9e-b085-7ed2f2aa7093)
 
 testing
 ```
 cat << 'EOF' > testing.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: testing
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-deployment
+  namespace: testing
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: nginx
+      app: pods-testing
   template:
     metadata:
       labels:
@@ -115,6 +124,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nginx-service
+  namespace: testing
 spec:
   selector:
     app: pods-testing
@@ -128,9 +138,11 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: nginx-ingress
+  namespace: testing
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
+  ingressClassName: nginx
   rules:
   - host: nginx-test.local
     http:
@@ -143,5 +155,22 @@ spec:
             port:
               number: 80
 EOF
-kubectl apply -f testing
 ```
+
+apply
+```
+kubectl apply -f testing.yaml
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/9cf7136f-3f65-4607-afa8-ff1ab91cde16)
+
+testing curl
+```
+kubectl get svc -n ingress-nginx
+curl -H 'Host: nginx-test.local' 10.20.10.100:31080 -I
+curl -H 'Host: nginx-test.local' 10.20.10.151 -I
+curl -H 'Host: nginx-test.local' 192.164.139.244 -I
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/a04cf9f7-51e6-4ba1-842f-868474dfba5f)
+
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/c374b055-bc17-4299-b014-95e6a00534b2)
+
