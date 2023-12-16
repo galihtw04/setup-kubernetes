@@ -21,7 +21,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: prometheus
-  namespace: monitoring
 rules:
 - apiGroups: [""]
   resources:
@@ -42,12 +41,6 @@ rules:
 - nonResourceURLs: ["/metrics"]
   verbs: ["get"]
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: prometheus-sa
-  namespace: monitoring
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -56,10 +49,9 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: prometheus
-  namespace: monitoring
 subjects:
 - kind: ServiceAccount
-  name: prometheus-sa
+  name: default
   namespace: monitoring
 EOF
 ```
@@ -301,7 +293,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus-deployment
-  namespace: ops-monit
+  namespace: monitoring
   labels:
     app: prometheus-server
 spec:
@@ -365,7 +357,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus-service
-  namespace: namespace
+  namespace: monitoring
   annotations:
       prometheus.io/scrape: 'true'
       prometheus.io/port:   '9090'
@@ -378,4 +370,13 @@ spec:
       targetPort: 9090 
       nodePort: 30000
 EOF
+```
+
+apply
+```
+kubectl apply -f namespace.yaml
+kubectl apply -f clusterrole.yaml
+kubectl apply -f configmaps.yaml
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
 ```
