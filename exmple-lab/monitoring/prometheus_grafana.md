@@ -1,13 +1,22 @@
 # deploy monitoring using prometheus and grafana
+
+# # deploy prometheus
+- create directory
+```
+mkdir prometheus && cd prometheus
+```
 - create namespace
 ```
+cat << 'EOF' > namespace.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
   name: monitoring
+EOF
 ```
 - create clusterrole and service account
 ```
+cat << 'EOF' > clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -52,10 +61,12 @@ subjects:
 - kind: ServiceAccount
   name: prometheus-sa
   namespace: monitoring
+EOF
 ```
 - create configmap
 > configmap ini digunakan untuk menentukan target yang akan diambil metricnya, dan confgimap ini akan di mount di deployment
 ```
+cat << 'EOF' > configmaps.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -281,9 +292,11 @@ data:
         - source_labels: [__meta_kubernetes_service_name]
           action: replace
           target_label: kubernetes_name
+EOF
 ```
 - create deployment
 ```
+cat << 'EOF' > deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -343,9 +356,11 @@ spec:
   
         - name: prometheus-storage-volume
           emptyDir: {}
+EOF
 ```
 - create service nodeport
 ```
+cat << 'EOF' > service.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -362,4 +377,5 @@ spec:
     - port: 8080
       targetPort: 9090 
       nodePort: 30000
+EOF
 ```
