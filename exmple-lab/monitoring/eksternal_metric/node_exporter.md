@@ -3,7 +3,7 @@
 - download and extract node exporter
 download binary node_exporter, untuk realses latest bisa di lihat [disini](https://github.com/prometheus/node_exporter/releases/)
 ```
-mkdir ~/node-exporter
+mkdir ~/node-exporter && cd ~/node-exporter
 wget https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz
 ```
 
