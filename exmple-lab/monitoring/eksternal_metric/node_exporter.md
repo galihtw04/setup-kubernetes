@@ -40,6 +40,7 @@ sudo mv node_exporter.service /etc/systemd/system/node_exporter.service
 sudo systemctl daemon-reload
 sudo systemctl restart node_exporter
 sudo systemctl status node_exporter
+EOF
 ```
 
 ```
