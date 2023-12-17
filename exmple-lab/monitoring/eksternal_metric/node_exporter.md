@@ -51,7 +51,7 @@ chmod +x install_exporter.sh
 ```
 for i in {0..4}; do \
 ssh -i ~/access.pem root@10.20.10.1$i hostname; \
-scp -i ~/access.pem -r ./* root@$10.20.10.1$i:~/ ;\
+scp -i ~/access.pem -r ./* root@$10.20.10.1$i:~/ ; \
 ssh -i ~/access.pem root@10.20.10.1$i bash install_exporter.sh && rm install_exporter.sh;\
 done
 ```
