@@ -1,4 +1,4 @@
-# install node_exporter
+# install node_exporter by package
 
 - download and extract node exporter
 download binary node_exporter, untuk realses latest bisa di lihat [disini](https://github.com/prometheus/node_exporter/releases/)
@@ -61,4 +61,16 @@ done
 for i in {0..4}; do \
 ssh -i ~/access.pem root@10.20.10.1$i 'hostname; node_exporter --version'; \
 done
+```
+
+# deploy node_exporter by kubernetes
+
+- create daemonset
+
+```
+mkdir exporter-service && cd exporter-service
+```
+
+```
+
 ```
