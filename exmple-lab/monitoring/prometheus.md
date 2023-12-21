@@ -380,3 +380,5 @@ kubectl apply -f configmaps.yaml
 kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
 ```
+
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/f6e859e1-3ffc-4b03-8339-71fff033de14)
