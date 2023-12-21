@@ -129,3 +129,6 @@ EOF
 ```
 kubectl apply -f service.yaml
 ```
+
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/75f3b3f6-94e5-4a14-b790-e064bbef05f4)
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/5d6e17d7-26c2-4820-b329-50d38f5be618)
