@@ -320,12 +320,14 @@ spec:
           ports:
             - containerPort: 9090
           volumeMounts:
+            - mountPath: /opt/prometheus/secrets
+              name: etcd-ca
             - name: prometheus-config-volume
               mountPath: /etc/prometheus/
             - name: prometheus-storage-volume
               mountPath: /prometheus/
         - name: configmap-reload
-          image: "jimmidyson/configmap-reload:v0.2.2"
+          image: "jimmidyson/configmap-reload:latest"
           imagePullPolicy: "IfNotPresent"
           securityContext:
             runAsNonRoot: true
@@ -337,10 +339,16 @@ spec:
             - --volume-dir=/etc/prometheus/
             - --webhook-url=http://127.0.0.1:9090/-/reload
           volumeMounts:
+            - mountPath: /opt/prometheus/secrets
+              name: etcd-ca
             - mountPath: /etc/prometheus/
               name: prometheus-config-volume
               readOnly: true
       volumes:
+        - name: etcd-ca
+          secret:
+            defaultMode: 420
+            secretName: etcd-ca
         - name: prometheus-config-volume
           configMap:
             defaultMode: 420
