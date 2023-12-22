@@ -5,7 +5,10 @@
 ```
 mkdir prometheus && cd prometheus
 ```
+
 - create namespace
+<details><summary>namespace.yaml</summary>
+
 ```
 cat << 'EOF' > namespace.yaml
 apiVersion: v1
@@ -14,7 +17,12 @@ metadata:
   name: monitoring
 EOF
 ```
+</details>
+
 - create clusterrole and service account
+
+<details><summary>clusterrole.yaml</summary>
+
 ```
 cat << 'EOF' > clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -55,8 +63,13 @@ subjects:
   namespace: monitoring
 EOF
 ```
+</details>
+
 - create configmap
 > configmap ini digunakan untuk menentukan target yang akan diambil metricnya, dan confgimap ini akan di mount di deployment
+
+<details><summary>configmaps.yaml</summary>
+
 ```
 cat << 'EOF' > configmaps.yaml
 apiVersion: v1
@@ -100,7 +113,35 @@ data:
           regex: 'node-exporter'
           action: keep
 
-      - job_name: 'kubernetes-api-test'
+
+      - job_name: 'kube-etcd'
+        kubernetes_sd_configs:
+        - role: pod
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+          cert_file: /opt/prometheus/secrets/apiserver-etcd-client.crt
+          key_file: /opt/prometheus/secrets/apiserver-etcd-client.key
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_component]
+          action: keep
+          regex: etcd
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:2379
+          target_label: __address__
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: node
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: pod
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+
+      - job_name: 'kubernetes-api'
         kubernetes_sd_configs:
         - role: pod
         scheme: https
@@ -121,49 +162,43 @@ data:
           target_label: node
         - action: labelmap
           regex: __meta_kubernetes_pod_label_(.+)
-      
-      - job_name: 'kubernetes-nodes'
-        scheme: https
-        tls_config:
-          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-
-        kubernetes_sd_configs:
-        - role: node
-
-        relabel_configs:
-        - action: labelmap
-          regex: __meta_kubernetes_node_label_(.+)
-        - target_label: __address__
-          replacement: kubernetes.default.svc:443
-        - source_labels: [__meta_kubernetes_node_name]
-          regex: (.+)
-          target_label: __metrics_path__
-          replacement: /api/v1/nodes/${1}/proxy/metrics     
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: pod
 
 
-      - job_name: 'kubernetes-manager'
- 
+      - job_name: 'kube-state-metricsv2'
         kubernetes_sd_configs:
         - role: pod
-        scheme: https
-        tls_config:
-                insecure_skip_verify: true
+        scheme: http
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-
         relabel_configs:
-        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
           action: keep
-          regex: kube
-        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          regex: kube-state-metrics
+        - source_labels: [__meta_kubernetes_pod_name]
           action: replace
-          regex: ([^:]+)(?::\d+)?;(\d+)
-          replacement: $1:$2
-          target_label: __address__
+          target_label: pod
         - action: labelmap
           regex: __meta_kubernetes_pod_label_(.+)
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: namespace
+        - source_labels: [__meta_kubernetes_pod_node_name]
+          action: replace
+          target_label: nodev2
 
-      - job_name: 'kubernetes-scheduler'
+      - job_name: 'node-exporter-service'
+        static_configs:
+        - targets:
+          - '10.20.10.10:9100'
+          - '10.20.10.11:9100'
+          - '10.20.10.12:9100'
+          - '10.20.10.13:9100'
+          - '10.20.10.14:9100'
+        metrics_path: '/metrics'
+
+      - job_name: 'kubernetes-scheduler-type2'
         kubernetes_sd_configs:
         - role: pod
         scheme: https
@@ -185,9 +220,48 @@ data:
         - action: labelmap
           regex: __meta_kubernetes_pod_name_(.+)
 
+      - job_name: 'kubernetes-nodes'
+
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+        kubernetes_sd_configs:
+        - role: node
+
+        relabel_configs:
+        - action: labelmap
+          regex: __meta_kubernetes_node_label_(.+)
+        - target_label: __address__
+          replacement: kubernetes.default.svc:443
+        - source_labels: [__meta_kubernetes_node_name]
+          regex: (.+)
+          target_label: __metrics_path__
+          replacement: /api/v1/nodes/${1}/proxy/metrics
+
+      - job_name: 'kubernetes-manager'
+        kubernetes_sd_configs:
+        - role: pod
+        scheme: https
+        tls_config:
+                insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: kube
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
 
       - job_name: 'kubernetes-pods'
- 
+
         kubernetes_sd_configs:
         - role: pod
 
@@ -212,38 +286,20 @@ data:
         - source_labels: [__meta_kubernetes_pod_name]
           action: replace
           target_label: kubernetes_pod_name
-
-      - job_name: 'kube-state-metrics'
-        kubernetes_sd_configs:
-        - role: pod
-        scheme: http
-        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        relabel_configs:
-        - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
-          action: keep
-          regex: kube-state-metrics
-        - source_labels: [__meta_kubernetes_pod_name]
+        - source_labels: [__meta_kubernetes_node_name]
           action: replace
-          target_label: pod
-        - action: labelmap
-          regex: __meta_kubernetes_pod_label_(.+)
-        - source_labels: [__meta_kubernetes_namespace]
-          action: replace
-          target_label: namespace
-        - source_labels: [__meta_kubernetes_pod_node_name]
-          action: replace
-          target_label: nodev2
-
+          target_label: worker
 
       - job_name: 'kubernetes-cadvisor'
+
         scheme: https
+
         tls_config:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
 
         kubernetes_sd_configs:
         - role: node
-
         relabel_configs:
         - action: labelmap
           regex: __meta_kubernetes_node_label_(.+)
@@ -253,7 +309,10 @@ data:
           regex: (.+)
           target_label: __metrics_path__
           replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
-      
+        - source_labels: [__meta_kubernetes_node_name]
+          action: replace
+          target_label: node
+
       - job_name: 'kubernetes-service-endpoints'
 
         kubernetes_sd_configs:
@@ -286,7 +345,28 @@ data:
           target_label: kubernetes_name
 EOF
 ```
+</details>
+
+- create secret to etcd metrics
+> agar kita bisa menambahkan etcd ke prometheus kita perlu membuat secret untuk hit etcd
+
+curl manual
+```
+curl https://10.20.10.10:2379/metrics --cert /etc/kubernetes/pki/apiserver-etcd-client.crt --key /etc/kubernetes/pki/apiserver-etcd-client.key -k
+```
+
+create secret
+<details><summary>secret</summary>
+
+```
+kubectl -n monitoring create secret generic etcd-ca --from-file=apiserver-etcd-client.key --from-file apiserver-etcd-client.crt
+```
+</details>
+
 - create deployment
+
+<details><summary>deployment.yaml</summary>
+
 ```
 cat << 'EOF' > deployment.yaml
 apiVersion: apps/v1
@@ -353,12 +433,15 @@ spec:
           configMap:
             defaultMode: 420
             name: prometheus-server-conf
-  
         - name: prometheus-storage-volume
           emptyDir: {}
 EOF
 ```
+</details>
+
 - create service nodeport
+<details><summary>service.yaml</summary>
+
 ```
 cat << 'EOF' > service.yaml
 apiVersion: v1
@@ -379,6 +462,7 @@ spec:
       nodePort: 30000
 EOF
 ```
+</details>
 
 apply
 ```
@@ -389,4 +473,5 @@ kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
 ```
 
-![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/f6e859e1-3ffc-4b03-8339-71fff033de14)
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/31689596-f34d-4db4-aa9c-aa295084646c)
+
