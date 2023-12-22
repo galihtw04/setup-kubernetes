@@ -38,7 +38,7 @@ nano /etc/kubernetes/manifests/kube-apiserver.yaml
 ## ---
 ```
 
-- edit https://10.20.10.10:2380
+- edit kube-scheduler.yaml
 
 ```
 nano /etc/kubernetes/manifests/kube-scheduler.yaml
@@ -62,7 +62,22 @@ nano /etc/kubernetes/manifests/kube-scheduler.yaml
 ## ---
 ```
 
-> edited pada manifest diatas dari kube-controller-manager.yaml,kube-apiserver.yaml, dan kube-scheduler.yaml pastikan di eksekusi di semua node master
+- edit etcd.yaml
+
+```
+nano /etc/kubernetes/manifests/etcd.yaml
+```
+
+```
+## ---
+  name: etcd
+  namespace: kube-system
+  annotations:
+      prometheus.io/port: '2379'
+## ---
+```
+
+> edited pada manifest-manifest diatas dari kube-controller-manager.yaml,kube-apiserver.yaml, dan kube-scheduler.yaml pastikan di eksekusi di semua node master
 
 restart pods manual/static
  - kube-apiserver
@@ -85,6 +100,13 @@ kubectl delete -n kube-system kube-scheduler-k8s-student-master01
 kubectl delete -n kube-system kube-scheduler-k8s-student-master02
 kubectl delete -n kube-system kube-scheduler-k8s-student-master03
 ```
+- etcd
+```
+kubectl delete -n kube-system etcd-k8s-student-master01
+kubectl delete -n kube-system etcd-k8s-student-master02
+kubectl delete -n kube-system etcd-k8s-student-master03
+```
+
 > pastikan semua pods yang di delete recreate
 
 ```
