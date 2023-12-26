@@ -15,8 +15,11 @@ kubectl create ns kubernetes-dashboard
 ```
 kubectl get ns
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/69ce652a-eda7-41ad-ae15-dc8d179604b2)
 
 - create serviceaccount
+<details><summary>user.yaml</summary>
+
 ```
 cat << 'EOF' > user.yaml
 apiVersion: v1
@@ -48,15 +51,14 @@ metadata:
 type: kubernetes.io/service-account-token
 EOF
 ```
+</details>
 
 ```
 kubectl apply -f user.yaml
-```
-
-```
+sleep 10
 kubectl get -n kubernetes-dashboard serviceaccount,secret
-kubectl get clusterrolebinding | grep cluster-admin
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/afa38a82-2f44-430a-b592-c536695178af)
 
 - create serviceaccount, secret, role,clusterrole, clusterrolbinding, & configmaps
 
@@ -200,6 +202,7 @@ EOF
 ```
 kubectl apply -f serviceaccount.yaml
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/d90cfcc2-a910-48a8-9919-f3564a55bd42)
 
 
 - create deployment kube-dashboard
@@ -285,6 +288,7 @@ kubectl apply -f deploymets-dahsboard.yaml
 ```
 kubectl get -n kubernetes-dashboard deployments,pods
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/0613c86b-421b-4352-9705-db491b4a77f6)
 
 - create service for kubernetes-dashboard
 <details><summary>service-dashboard.yaml</summary>
@@ -309,6 +313,15 @@ spec:
 EOF
 ```
 </details>
+
+```
+kubectl apply -f service-dashboard.yaml
+```
+
+```
+kubectl get svc -n kubernetes-dashboard
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/d5323353-c70e-4c54-8909-fd169ed33a77)
 
 - create deployemnts scrape
 <details><summary>deployments-scrape.yaml</summary>
@@ -376,6 +389,7 @@ kubectl apply -f deployments-scrape.yaml
 sleep 20
 kubectl get -n kubernetes-dashboard deployments,pods
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/fc154322-3b79-439b-ad5a-6cd3beed934f)
 
 - create service for deployments-scrape
 <details><summary>service-scrape.yaml</summary>
@@ -401,6 +415,27 @@ EOF
 
 ```
 kubectl apply -f service-scrape.yaml
-sleep 20
+```
+
+```
 kubectl get -n kubernetes-dashboard svc
 ```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/110b3991-3b82-4d3d-8bf2-8e2c244db2fd)
+
+- access kubernetes-dashboard
+
+```
+<ip-loadbalancer>
+or
+<ip-node>:<nodeport>
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/df8e0f9e-55ee-453c-858f-772b62491249)
+> untuk token bisa kita cek pada secret admin-user
+
+```
+kubectl describe secrets -n kubernetes-dashboard admin-user | grep token
+```
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/4f8e8a02-2059-4440-8e3e-69e1a8759825)
+> copy token dan paster pada dashboard kubernetes
+![image](https://github.com/galihtw04/setup-kubernetes/assets/96242740/85ff89cc-ea6d-4164-8f38-4b4f17e34039)
+
